@@ -18,11 +18,6 @@ services:
       timeout: 5s
       retries: 5
     image: rabbitmq:4-management-alpine
-    logging:
-      driver: fluentd
-      options:
-        fluentd-address: localhost:24224
-        tag: rabbitmq
     networks:
       - internal_bridge
     ports:
@@ -36,7 +31,7 @@ services:
   celery-worker:
     build: ./celery
     user: ffuser:ffgroup
-    command: celery -A app.worker worker --loglevel=INFO
+    command: celery -A app.worker worker --loglevel=INFO --logfile=/celery/logs/celery.log
     container_name: ${OPTB_CELERY_WORKER_CONTAINER_NAME}
     depends_on:
       rabbitmq:
@@ -47,11 +42,6 @@ services:
       OPTB_RABBITMQ_PORT: ${OPTB_RABBITMQ_PORT}
       OPTB_RABBITMQ_USER: ${OPTB_RABBITMQ_USER}
     image: celery-worker:latest
-    logging:
-      driver: fluentd
-      options:
-        fluentd-address: localhost:24224
-        tag: celery.worker
     networks:
       - internal_bridge
     pull_policy: never
