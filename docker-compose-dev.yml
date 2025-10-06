@@ -1,0 +1,70 @@
+services:
+  rabbitmq:
+    container_name: ${OPTB_RABBITMQ_CONTAINER_NAME}
+    environment:
+      RABBITMQ_DEFAULT_PASS: ${OPTB_RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_USER: ${OPTB_RABBITMQ_USER}
+    # TODO: try this
+    # healthcheck:
+    #   test: ["CMD", "rabbitmqctl", "status"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
+    #   start_period: 5s
+    # TODO: try this
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    image: rabbitmq:4-management-alpine
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: rabbitmq
+    networks:
+      - internal_bridge
+    ports:
+      - "${OPTB_RABBITMQ_PORT}:5672" # порт для брокера (AMQP)
+      - "15672:15672" # порт для web UI
+    restart: unless-stopped
+    volumes:
+      - rabbitmq_logs:/var/log/rabbitmq
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+
+  celery-worker:
+    build: ./celery
+    user: ffuser:ffgroup
+    command: celery -A app.worker worker --loglevel=INFO
+    container_name: ${OPTB_CELERY_WORKER_CONTAINER_NAME}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      OPTB_RABBITMQ_CONTAINER_NAME: ${OPTB_RABBITMQ_CONTAINER_NAME}
+      OPTB_RABBITMQ_PASSWORD: ${OPTB_RABBITMQ_PASSWORD}
+      OPTB_RABBITMQ_PORT: ${OPTB_RABBITMQ_PORT}
+      OPTB_RABBITMQ_USER: ${OPTB_RABBITMQ_USER}
+    image: celery-worker:latest
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: celery.worker
+    networks:
+      - internal_bridge
+    pull_policy: never
+    restart: unless-stopped
+    volumes:
+      - celery_logs:/celery/logs
+
+networks:
+  internal_bridge:
+    external: true
+
+volumes:
+  celery_logs:
+    external: true
+  rabbitmq_logs:
+    external: true

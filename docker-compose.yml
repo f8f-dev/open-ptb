@@ -1,0 +1,46 @@
+services:
+  rabbitmq:
+    container_name: ${OPTB_RABBITMQ_CONTAINER_NAME}
+    environment:
+      RABBITMQ_DEFAULT_USER: ${OPTB_RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${OPTB_RABBITMQ_PASSWORD}
+    image: rabbitmq:4-alpine
+    networks:
+      - internal_bridge
+    ports:
+      - "${OPTB_RABBITMQ_PORT}:5672" # порт для брокера (AMQP)
+      # - "15672:15672" # порт для web UI
+    # TODO: try this
+    # healthcheck:
+    #   test: ["CMD", "rabbitmqctl", "status"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
+    #   start_period: 5s
+    # TODO: try this
+    # healthcheck:
+    #   test: ["CMD-SHELL", "rabbitmq-diagnostics -q status || exit 1"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
+
+  celery-worker:
+    build: ./celery
+    command: celery -A celery_app.worker worker --loglevel=INFO --logfile=/app/logs/celery.log
+    container_name: ${OPTB_CELERY_WORKER_CONTAINER_NAME}
+    # depends_on:
+    #   rabbitmq:
+    #     condition: service_healthy
+    environment:
+      OPTB_CELERY_WORKER_CONTAINER_NAME: ${OPTB_CELERY_WORKER_CONTAINER_NAME}
+      OPTB_RABBITMQ_PASSWORD: ${OPTB_RABBITMQ_PASSWORD}
+      OPTB_RABBITMQ_PORT: ${OPTB_RABBITMQ_PORT}
+      OPTB_RABBITMQ_USER: ${OPTB_RABBITMQ_USER}
+    networks:
+      - internal_bridge
+    volumes:
+      - ./logs:/app/logs
+
+networks:
+  internal_bridge:
+    external: true
