@@ -1,3 +1,5 @@
+# docker compose --env-file .env.dev -f docker-compose-dev.yml down --volumes --rmi all --remove-orphans
+# docker compose --env-file .env.dev -f docker-compose-dev.yml up
 services:
   rabbitmq:
     container_name: ${OPTB_RABBITMQ_CONTAINER_NAME}
@@ -22,11 +24,28 @@ services:
       - internal_bridge
     ports:
       - "${OPTB_RABBITMQ_PORT}:5672" # порт для брокера (AMQP)
-      - "15672:15672" # порт для web UI
+      - "${OPTB_RABBITMQ_PORT_MANAGEMENT}:15672" # порт для web UI
     restart: unless-stopped
     volumes:
+      - rabbitmq_data:/var/lib/rabbitmq 
       - rabbitmq_logs:/var/log/rabbitmq
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+
+  flower:
+    container_name: flower
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      celery-worker:
+        condition: service_started
+    environment:
+      CELERY_BROKER_URL: amqp://${OPTB_RABBITMQ_USER}:${OPTB_RABBITMQ_PASSWORD}@${OPTB_RABBITMQ_CONTAINER_NAME}:${OPTB_RABBITMQ_PORT}//
+      FLOWER_BROKER_API: http://${OPTB_RABBITMQ_USER}:${OPTB_RABBITMQ_PASSWORD}@${OPTB_RABBITMQ_CONTAINER_NAME}:${OPTB_RABBITMQ_PORT_MANAGEMENT}/api/
+    image: mher/flower
+    networks:
+      - internal_bridge
+    ports:
+      - "5555:5555"
 
   celery-worker:
     build: ./celery
@@ -51,10 +70,13 @@ services:
 
 networks:
   internal_bridge:
+    driver: bridge
     external: true
 
 volumes:
   celery_logs:
+    external: true
+  rabbitmq_data:
     external: true
   rabbitmq_logs:
     external: true
