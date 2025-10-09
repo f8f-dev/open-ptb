@@ -48,14 +48,15 @@ services:
       - "5555:5555"
 
   celery-worker:
-    build: ./celery
+    build: ./services/celery
     user: ffuser:ffgroup
-    command: celery -A app.worker worker --loglevel=INFO --logfile=/celery/logs/celery.log
+    command: celery -A service:celery_service worker --pool=threads --loglevel=INFO --logfile=/celery/logs/celery.log
     container_name: ${OPTB_CELERY_WORKER_CONTAINER_NAME}
     depends_on:
       rabbitmq:
         condition: service_healthy
     environment:
+      PYTHONPATH: / 
       OPTB_RABBITMQ_CONTAINER_NAME: ${OPTB_RABBITMQ_CONTAINER_NAME}
       OPTB_RABBITMQ_PASSWORD: ${OPTB_RABBITMQ_PASSWORD}
       OPTB_RABBITMQ_PORT: ${OPTB_RABBITMQ_PORT}
