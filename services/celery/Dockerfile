@@ -9,4 +9,4 @@ RUN mkdir -p logs && chown -R ffuser:ffgroup logs
 
 RUN pip install --no-cache-dir celery
 
-COPY . .
+COPY service.py .
